@@ -1,113 +1,90 @@
-import userService from "../services/user.service";
-import userHandler from "../handlers/user.handler";
-import jwt from "jsonwebtoken";
-import isBoolean from "util";
+import jwt from 'jsonwebtoken';
+import userService from '../services/user.service';
+import userHandler from '../handlers/user.handler';
+import response from '../utils/response';
+import StatusCode from '../constants/http-status-code';
 
 export default {
   async signup(req, res) {
     try {
-      const { value, error } = userService.validateSignup(req.body);
+      const { error } = userHandler.validateSignup(req.body);
       if (error) {
-        return res.send(error);
+        return response.error(res, error, StatusCode.BadRequest);
       }
-      if (
-        userService.validateConfirmPassword(
-          req.body.password,
-          req.body.confirmPassword
-        ) == false
-      ) {
-        {
-          return res.send("Xác nhận mật khẩu không chính xác");
-        }
-      }
-      var hashedPassword = await userService.hashPassword(req.body.password);
-      console.log(req.body);
-      const result = await userHandler.createNewUser(
+
+      var hashedPassword = await userHandler.hashPassword(req.body.password);
+      const result = await userService.createNewUser(
         req.body.fullName,
         req.body.email,
         req.body.phone,
         req.body.address,
         req.body.username,
         hashedPassword,
-        req.body.age
       );
-      return res.send({
-        data: result,
-        error: null,
-        success: "Ok",
-      });
+
+      return response.success(res, result);
     } catch (error) {
-      return res.send({
-        data: null,
-        error: error,
-        success: null,
-      });
+      response.error(res, error, StatusCode.InternalServerError);
     }
   },
   async login(req, res) {
     try {
-      var isUsernameExist = await userHandler.getUsername(req.body.username);
+      var isUsernameExist = await userService.getUsername(req.body.username);
       if (isUsernameExist != null) {
-        //console.log(isUsernameExist.password);
         if (
-          userService.comparePassword(
+          userHandler.comparePassword(
             req.body.password,
-            isUsernameExist.password
+            isUsernameExist.password,
           )
         ) {
-          return res.json({
+          return response.success(res, {
             token: jwt.sign(
               {
                 username: isUsernameExist.username,
                 email: isUsernameExist.email,
                 fullName: isUsernameExist.fullName,
-                _id: isUsernameExist._id,
+                id: isUsernameExist.id,
               },
-              "Token"
+              'Token',
             ),
           });
         } else {
-          return res.send({
-            error: "password is wrong",
-          });
+          return response.error(
+            res,
+            'password is incorrect',
+            StatusCode.NotFound,
+          );
         }
       } else {
-        res.send({
-          error: "account is not exist",
-        });
+        return response.error(
+          res,
+          'The account is not exist',
+          StatusCode.NotFound,
+        );
       }
     } catch (error) {
-      return res.send({
-        error: error,
-      });
+      return response.error(res, error, StatusCode.InternalServerError);
     }
   },
-  //secretkey
   async logedin(req, res) {
-    jwt.verify(req.token, "Token", (err, authData) => {
+    jwt.verify(req.token, 'Token', (err, authData) => {
       if (err) {
         return res.sendStatus(403);
       } else {
-        return res.json({
-          message: "Workout",
-          authData,
-        });
+        return response.success(res, authData);
       }
     });
   },
   async verifyToken(req, res, next) {
-    const bearerHeader = req.headers["token"];
-    console.log(bearerHeader);
-    if (typeof bearerHeader != "undefined") {
-      const bearer = bearerHeader.split(" ");
-
+    const bearerHeader = req.headers['authorization'];
+    if (typeof bearerHeader != 'undefined') {
+      const bearer = bearerHeader.split(' ');
       const bearerToken = bearer[1];
-
       req.token = bearerToken;
 
       next();
     } else {
-      res.send(403);
+      res.sendStatus(403);
     }
   },
 };

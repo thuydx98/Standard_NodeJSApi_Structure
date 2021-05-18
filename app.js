@@ -1,17 +1,16 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import {connect} from './configs/db';
-import {router} from './routes/index';
+import { router } from './routes/index';
+import { migration } from './configs/migration';
 
 const PORT = 8001;
 const APP = express();
 
-connect();
+migration();
+
 APP.use(bodyParser.json());
 APP.use(bodyParser.urlencoded({ extended: false }));
 
 APP.use('/api', router);
 
-APP.listen(PORT, (req, res) => {
-    console.log("Server is running on port: " + PORT);
-})
+APP.listen(PORT, () => console.log('Server is running on port: ' + PORT));
